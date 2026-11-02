@@ -19,7 +19,7 @@ GameField::GameField(const GameField& other)
 
 GameField& GameField::operator=(const GameField& other) {
     if (this == &other) return *this;
-    GameField tmp(other);           // copy-and-swap
+    GameField tmp(other);
     std::swap(width_,    tmp.width_);
     std::swap(height_,   tmp.height_);
     std::swap(maxUnits_, tmp.maxUnits_);
@@ -59,6 +59,19 @@ void GameField::addUnit(std::unique_ptr<Unit> unit, int x, int y) {
     grid_[idx] = std::move(unit);
 }
 
+void GameField::moveUnit(int fromX, int fromY, int toX, int toY) {
+    std::size_t fromIdx = index(fromX, fromY);
+    std::size_t toIdx = index(toX, toY);
+
+    if (fromIdx == toIdx) return;
+    if (!grid_[fromIdx]) throw std::runtime_error("No unit at source");
+    if (grid_[toIdx]) throw std::runtime_error("Destination cell is occupied");
+
+    std::unique_ptr<Unit> unit = std::move(grid_[fromIdx]);
+    unit->move(toX, toY);
+    grid_[toIdx] = std::move(unit);
+}
+
 void GameField::removeUnit(int x, int y) {
     std::size_t idx = index(x, y);
     if (!grid_[idx]) throw std::runtime_error("No unit at this position");
@@ -76,7 +89,6 @@ const Unit* GameField::getUnit(int x, int y) const {
 void GameField::fillWithFactory(const UnitFactory& factory, std::size_t count) {
     for (std::size_t i = 0; i < count; ++i) {
         if (countUnits() >= maxUnits_) return;
-        // Ищем свободную клетку
         for (int y = 0; y < height_; ++y) {
             for (int x = 0; x < width_; ++x) {
                 if (!grid_[index(x, y)]) {

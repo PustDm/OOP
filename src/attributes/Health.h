@@ -11,10 +11,12 @@ public:
         value_ -= amount;
         if (value_ < 0) value_ = 0;
     }
+
     void increase(int amount) {
         if (amount < 0) return;
-        value_ += amount;
+        value_ += amount > 100 ? 100: amount;
     }
+    
     bool isZero() const { return value_ == 0; }
     int getValue() const { return value_; }
 };

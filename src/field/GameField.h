@@ -40,7 +40,7 @@ private:
     int width_;
     int height_;
     std::size_t maxUnits_;
-    std::vector<std::unique_ptr<Unit>> grid_; // одномерный массив width*height
+    std::vector<std::unique_ptr<Unit>> grid_;
 
     std::size_t index(int x, int y) const {
         if (x < 0 || x >= width_ || y < 0 || y >= height_)
@@ -56,19 +56,17 @@ private:
 
 public:
     GameField(int width, int height, std::size_t maxUnits);
-
     GameField(const GameField& other);
     GameField& operator=(const GameField& other);
-
     GameField(GameField&& other) noexcept;
     GameField& operator=(GameField&& other) noexcept;
-
     ~GameField() = default;
 
     void addUnit(std::unique_ptr<Unit> unit, int x, int y);
     void removeUnit(int x, int y);
     Unit* getUnit(int x, int y);
     const Unit* getUnit(int x, int y) const;
+    void moveUnit(int fromX, int fromY, int toX, int toY);
 
     void fillWithFactory(const UnitFactory& factory, std::size_t count);
 

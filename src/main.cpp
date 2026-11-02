@@ -1,76 +1,82 @@
 #include <iostream>
+#include "core/GameController.h"
 #include <cassert>
 #include "field/GameField.h"
 #include "factories/InfantryFactory.h"
 #include "factories/ArcherFactory.h"
 #include "factories/CavalryFactory.h"
 
-static void printField(const GameField& field) {
-    std::cout << "  ";
-    for (int x = 0; x < field.getWidth(); ++x) std::cout << x % 10 << ' ';
-    std::cout << '\n';
-    for (int y = 0; y < field.getHeight(); ++y) {
-        std::cout << y % 10 << ' ';
-        for (int x = 0; x < field.getWidth(); ++x) {
-            const Unit* u = field.getUnit(x, y);
-            std::cout << (u ? u->getSymbol() : '.') << ' ';
+void printMap(TerrainMap& map) {
+    int w = map.getField().getWidth();
+    int h = map.getField().getHeight();
+    std::cout << "\033[37mX \033[0m"; 
+    for (int x = 0; x < w; ++x) std::cout << "\033[37mX \033[0m"; 
+    std::cout << "\033[37mX\033[0m\n";
+    for (int y = 0; y < h; ++y) {
+        std::cout << "\033[37mX \033[0m"; 
+        
+        for (int x = 0; x < w; ++x) {
+            Unit* unit = map.getField().getUnit(x, y);
+            if (unit) {
+                std::cout << "\033[1;33m" << unit->getSymbol() << "\033[0m ";
+                continue;
+            }
+
+            NeutralObject* obj = map.getNeutralObject(x, y);
+            if (obj) {
+                std::cout << "\033[1;31m" << obj->getSymbol() << "\033[0m ";
+                continue;
+            }
+
+            Terrain* terrain = map.getTerrain(x, y);
+            char sym = terrain->getSymbol();
+            if (sym == '.')      std::cout << "\033[32m. \033[0m"; 
+            else if (sym == '*') std::cout << "\033[1;32m* \033[0m"; 
+            else if (sym == '~') std::cout << "\033[34m~ \033[0m"; 
+            else if (sym == '^') std::cout << "\033[37m^ \033[0m"; 
+            else                 std::cout << sym << " ";
         }
-        std::cout << '\n';
+        std::cout << "\033[37mX\033[0m \n"; 
     }
+
+    std::cout << "\033[37mX \033[0m"; 
+    for (int x = 0; x < w; ++x) std::cout << "\033[37mX \033[0m"; 
+    std::cout << "\033[37mX\033[0m\n\n";
 }
 
+
 int main() {
-    std::cout << "Создание поля и наполнение через фабрики\n";
-    GameField field(8, 8, 16);
+    std::cout << "Инициализация игры\n";
+    GameController game;
+    Base& base = game.getBase();
+    TerrainMap& map = game.getMap();
+    std::cout << "\nСценарий 1: Создание юнитов\n";
     InfantryFactory swordFactory(InfantryType::Swordsman);
-    InfantryFactory spearFactory(InfantryType::Spearman);
-    ArcherFactory   lightFactory(ArcherType::Light);
-    ArcherFactory   heavyFactory(ArcherType::Heavy);
-    CavalryFactory  cataFactory(CavalryType::Cataphract);
-    CavalryFactory  horseFactory(CavalryType::HorseArcher);
+    ArcherFactory archerFactory(ArcherType::Light);
+    CavalryFactory cataFactory(CavalryType::Cataphract);
 
-    field.fillWithFactory(swordFactory, 2);
-    field.fillWithFactory(spearFactory, 2);
-    field.fillWithFactory(lightFactory, 2);
-    field.fillWithFactory(heavyFactory, 1);
-    field.fillWithFactory(cataFactory,  1);
-    field.fillWithFactory(horseFactory, 1);
-
-    printField(field);
-    std::cout << "Всего юнитов: " << field.getSize() << "\n\n";
-
-    std::cout << "Глубокое копирование\n";
-    GameField copy = field;            // copy ctor
-    Unit* original = field.getUnit(0, 0);
-    Unit* cloned   = copy.getUnit(0, 0);
-    assert(original && cloned && original != cloned);
-
-    Unit* attacker = copy.getUnit(1, 0);
-    if (attacker && cloned) {
-        std::cout << "До атаки: clone HP = " << cloned->getHealth().getValue() << '\n';
-        attacker->attackUnit(*cloned);
-        std::cout << "После атаки: clone HP = " << cloned->getHealth().getValue()
-                  << ", original HP = " << original->getHealth().getValue() << '\n';
+    game.createUnitOnMap(swordFactory, 0, 0);
+    game.createUnitOnMap(archerFactory, 1, 0);
+    game.createUnitOnMap(cataFactory, 2, 0);
+    std::cout << "База создала юнитов. Всего в учете: " << base.getUnitCount() << "\n";
+    std::cout << "\nСценарий 2: Перемещение и Прокси\n";
+    map.moveUnit(0, 0, 0, 1);
+    std::cout << "\nСценарий 3: Нейтральные объекты\n";
+    map.addNeutralObject(1, 1, std::make_unique<TreasureChest>());
+    map.addNeutralObject(2, 1, std::make_unique<Trap>());
+    map.addNeutralObject(3, 1, std::make_unique<Altar>());
+    map.addNeutralObject(4, 1, std::make_unique<EnergySource>());
+    map.moveUnit(0, 1, 1, 1);
+    map.moveUnit(1, 0, 2, 1);
+    std::cout << "\nСценарий 4: Уничтожение юнита\n";
+    Unit* archer = map.getField().getUnit(2, 1);
+    if (archer) {
+        std::cout << "Урон от ловушки...\n";
+        archer->takeDamage(1000);
     }
-    std::cout << "Копия независима от оригинала.\n\n";
-
-    std::cout << "Перемещение поля\n";
-    GameField moved = std::move(field);
-    std::cout << "После move: moved.getSize() = " << moved.getSize()
-              << ", field.getSize() = " << field.getSize() << '\n';
-    assert(field.getSize() == 0);
-    std::cout << "Перемещение выполнено, исходное поле пусто.\n\n";
-
-    std::cout << "Обход итератором\n";
-    int idx = 0;
-    for (Unit& u : moved) {
-        std::cout << "#" << ++idx << " " << u.getType()
-                  << " at (" << u.getX() << "," << u.getY() << ")"
-                  << " HP=" << u.getHealth().getValue()
-                  << " ARM=" << u.getArmor().getValue()
-                  << " ATK=" << u.getAttack().getValue() << '\n';
-    }
-    std::cout << "Итерация завершена. Найдено юнитов: " << idx << '\n';
-
+    std::cout << "База после смерти юнита. Всего в учете: " << base.getUnitCount() << "\n";
+    std::cout << "\nИгра завершена\n";
+    std::cout << "\nКарта мира\n";
+    printMap(map);
     return 0;
 }
